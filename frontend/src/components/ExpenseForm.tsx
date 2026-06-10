@@ -4,9 +4,9 @@
 
 import React from "react";
 import { ExpenseFormData } from "../types";
-import { EXPENSE_CATEGORIES } from "../constants/categories";
 import { TextField, SelectBox, Button } from "../vibes";
 import { useExpenseForm } from "../hooks/useExpenseForm";
+import { useCategories } from "../hooks/useCategories";
 
 interface ExpenseFormProps {
   initialData?: Partial<ExpenseFormData>;
@@ -27,6 +27,9 @@ export function ExpenseForm({
       onSubmit,
     });
 
+  // Load categories from the backend so newly added categories are selectable
+  const { categories } = useCategories();
+
   const formStyle: React.CSSProperties = {
     display: "flex",
     flexDirection: "column",
@@ -39,7 +42,7 @@ export function ExpenseForm({
     marginTop: "0.5rem",
   };
 
-  const categoryOptions = EXPENSE_CATEGORIES.map((category) => ({
+  const categoryOptions = categories.map((category) => ({
     value: category,
     label: category,
   }));
