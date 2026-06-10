@@ -47,6 +47,9 @@ export function useExpenseForm({ initialData, onSubmit }: UseExpenseFormProps) {
 
     if (!formData.date) {
       newErrors.date = "Date is required";
+    } else if (formData.date > formatDate(new Date())) {
+      // ISO date strings compare correctly, so no need to build Date objects
+      newErrors.date = "Date cannot be in the future. Please choose today or an earlier date.";
     }
 
     setErrors(newErrors);
