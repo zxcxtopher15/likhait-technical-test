@@ -5,8 +5,8 @@ RSpec.describe "Api::Expenses", type: :request do
   let!(:transport_category) { Category.create!(name: "Transport") }
 
   describe "GET /api/expenses" do
-  let!(:expense1) { Expense.create!(description: "Lunch", amount: 100.00, category: food_category, date: Date.today) }
-  let!(:expense2) { Expense.create!(description: "Taxi", amount: 50.00, category: transport_category, date: Date.today) }
+    let!(:older_expense) { Expense.create!(description: "Lunch", amount: 100.00, category: food_category, date: Date.new(2026, 1, 10)) }
+    let!(:newer_expense) { Expense.create!(description: "Taxi", amount: 50.00, category: transport_category, date: Date.new(2026, 2, 15)) }
 
     it "returns all expenses with category information" do
       get "/api/expenses"
@@ -16,12 +16,51 @@ RSpec.describe "Api::Expenses", type: :request do
       expect(json.length).to eq(2)
     end
 
-    it "returns expenses in descending order by created_at" do
+    it "returns expenses ordered by expense date (most recent first)" do
       get "/api/expenses"
 
       json = JSON.parse(response.body)
-      expect(json.first["id"]).to eq(expense2.id)
-      expect(json.last["id"]).to eq(expense1.id)
+      expect(json.first["id"]).to eq(newer_expense.id)
+      expect(json.last["id"]).to eq(older_expense.id)
+    end
+
+    it "orders expenses sharing the same date by most recently created first" do
+      first_created = Expense.create!(description: "Morning coffee", amount: 5.00, category: food_category, date: Date.new(2026, 3, 1))
+      last_created  = Expense.create!(description: "Evening coffee", amount: 6.00, category: food_category, date: Date.new(2026, 3, 1))
+
+      get "/api/expenses"
+
+      json = JSON.parse(response.body)
+      same_day_ids = json.map { |e| e["id"] }.select { |id| [ first_created.id, last_created.id ].include?(id) }
+      expect(same_day_ids).to eq([ last_created.id, first_created.id ])
+    end
+
+    context "when filtering by year and month" do
+      it "filters by the expense date, not the creation timestamp" do
+        # Incurred in February but recorded (created) in a later month.
+        in_month = Expense.create!(
+          description: "Backdated February expense",
+          amount: 25.00,
+          category: food_category,
+          date: Date.new(2026, 2, 20),
+          created_at: Date.new(2026, 4, 1)
+        )
+        # Incurred in March but recorded during February.
+        out_of_month = Expense.create!(
+          description: "March expense logged early",
+          amount: 30.00,
+          category: food_category,
+          date: Date.new(2026, 3, 5),
+          created_at: Date.new(2026, 2, 1)
+        )
+
+        get "/api/expenses", params: { year: 2026, month: 2 }
+
+        json = JSON.parse(response.body)
+        ids = json.map { |e| e["id"] }
+        expect(ids).to include(in_month.id)
+        expect(ids).not_to include(out_of_month.id)
+      end
     end
   end
 
